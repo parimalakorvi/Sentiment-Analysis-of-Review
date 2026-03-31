@@ -1,6 +1,3 @@
 flask
 gunicorn
-pandas
-numpy
-scikit-learn
 nltk
