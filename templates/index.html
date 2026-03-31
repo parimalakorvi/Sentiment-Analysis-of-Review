@@ -1,1 +1,625 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SentiSense — AI Sentiment Analyzer</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:       #0a0a0f;
+    --surface:  #13131a;
+    --border:   #1e1e2e;
+    --text:     #e8e8f0;
+    --muted:    #6b6b80;
+    --pos:      #22d87a;
+    --neg:      #ff4d6d;
+    --neu:      #7c83fd;
+    --pos-bg:   rgba(34,216,122,0.08);
+    --neg-bg:   rgba(255,77,109,0.08);
+    --neu-bg:   rgba(124,131,253,0.08);
+    --glow-pos: rgba(34,216,122,0.15);
+    --glow-neg: rgba(255,77,109,0.15);
+    --glow-neu: rgba(124,131,253,0.15);
+  }
 
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Instrument Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── Background grid ── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(124,131,253,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(124,131,253,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── Blobs ── */
+  .blob {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(100px);
+    opacity: 0.12;
+    pointer-events: none;
+    z-index: 0;
+    animation: drift 12s ease-in-out infinite alternate;
+  }
+  .blob-1 { width:500px; height:500px; background:#7c83fd; top:-100px; left:-100px; }
+  .blob-2 { width:400px; height:400px; background:#22d87a; bottom:-100px; right:-100px; animation-delay: -6s; }
+
+  @keyframes drift {
+    from { transform: translate(0,0) scale(1); }
+    to   { transform: translate(30px,20px) scale(1.05); }
+  }
+
+  /* ── Layout ── */
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 60px 24px 80px;
+  }
+
+  /* ── Header ── */
+  header {
+    text-align: center;
+    margin-bottom: 56px;
+    animation: fadeUp 0.6s ease both;
+  }
+  .logo-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--border);
+    border: 1px solid rgba(124,131,253,0.2);
+    border-radius: 100px;
+    padding: 6px 18px;
+    font-size: 0.78rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--neu);
+    margin-bottom: 24px;
+  }
+  .logo-badge span { font-size: 1rem; }
+  h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(2.4rem, 6vw, 3.8rem);
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    background: linear-gradient(135deg, #ffffff 0%, #a0a0c0 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 16px;
+  }
+  header p {
+    color: var(--muted);
+    font-size: 1.05rem;
+    max-width: 440px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+
+  /* ── Tabs ── */
+  .tabs {
+    display: flex;
+    gap: 4px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 5px;
+    margin-bottom: 28px;
+    animation: fadeUp 0.6s 0.1s ease both;
+  }
+  .tab {
+    flex: 1;
+    padding: 12px;
+    text-align: center;
+    border-radius: 10px;
+    font-family: 'Syne', sans-serif;
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    transition: all 0.2s;
+    letter-spacing: 0.02em;
+  }
+  .tab.active {
+    background: var(--border);
+    color: var(--text);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+  }
+  .tab:hover:not(.active) { color: var(--text); }
+
+  /* ── Card ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 32px;
+    animation: fadeUp 0.6s 0.2s ease both;
+  }
+
+  /* ── Textarea ── */
+  textarea {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    color: var(--text);
+    font-family: 'Instrument Sans', sans-serif;
+    font-size: 1rem;
+    line-height: 1.7;
+    padding: 18px 20px;
+    resize: vertical;
+    min-height: 150px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  textarea:focus { border-color: var(--neu); }
+  textarea::placeholder { color: var(--muted); }
+
+  /* ── Button ── */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 16px;
+    padding: 14px 32px;
+    background: var(--neu);
+    color: #0a0a0f;
+    border: none;
+    border-radius: 12px;
+    font-family: 'Syne', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 700;
+    cursor: pointer;
+    letter-spacing: 0.02em;
+    transition: all 0.2s;
+    width: 100%;
+    justify-content: center;
+  }
+  .btn:hover { opacity: 0.88; transform: translateY(-1px); }
+  .btn:active { transform: translateY(0); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+  /* ── File upload ── */
+  .upload-zone {
+    border: 2px dashed var(--border);
+    border-radius: 14px;
+    padding: 48px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--bg);
+    position: relative;
+  }
+  .upload-zone:hover, .upload-zone.dragover {
+    border-color: var(--neu);
+    background: rgba(124,131,253,0.04);
+  }
+  .upload-zone input[type="file"] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+  }
+  .upload-icon { font-size: 2.8rem; margin-bottom: 12px; }
+  .upload-zone h3 { font-family: 'Syne', sans-serif; font-size: 1.05rem; margin-bottom: 6px; }
+  .upload-zone p  { color: var(--muted); font-size: 0.85rem; }
+  .file-selected {
+    margin-top: 14px;
+    background: var(--border);
+    border-radius: 8px;
+    padding: 10px 16px;
+    font-size: 0.88rem;
+    display: none;
+    align-items: center;
+    gap: 8px;
+  }
+  .file-selected.show { display: flex; }
+
+  /* ── Result box (single text) ── */
+  .result-box {
+    display: none;
+    margin-top: 24px;
+    border-radius: 16px;
+    padding: 28px;
+    text-align: center;
+    animation: popIn 0.4s cubic-bezier(0.34,1.56,0.64,1) both;
+  }
+  .result-box.show { display: block; }
+  .result-box.Positive { background: var(--pos-bg); border: 1px solid rgba(34,216,122,0.2); box-shadow: 0 0 40px var(--glow-pos); }
+  .result-box.Negative { background: var(--neg-bg); border: 1px solid rgba(255,77,109,0.2); box-shadow: 0 0 40px var(--glow-neg); }
+  .result-box.Neutral  { background: var(--neu-bg); border: 1px solid rgba(124,131,253,0.2); box-shadow: 0 0 40px var(--glow-neu); }
+
+  .result-emoji { font-size: 3.5rem; margin-bottom: 10px; }
+  .result-label {
+    font-family: 'Syne', sans-serif;
+    font-size: 2rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    margin-bottom: 24px;
+  }
+  .result-box.Positive .result-label { color: var(--pos); }
+  .result-box.Negative .result-label { color: var(--neg); }
+  .result-box.Neutral  .result-label { color: var(--neu); }
+
+  /* ── Bar chart ── */
+  .bars { display: flex; flex-direction: column; gap: 12px; text-align: left; }
+  .bar-row { display: flex; align-items: center; gap: 12px; }
+  .bar-name {
+    width: 72px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    flex-shrink: 0;
+  }
+  .bar-track {
+    flex: 1;
+    height: 10px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 100px;
+    overflow: hidden;
+  }
+  .bar-fill {
+    height: 100%;
+    border-radius: 100px;
+    width: 0;
+    transition: width 0.8s cubic-bezier(0.22,1,0.36,1);
+  }
+  .bar-fill.pos { background: var(--pos); }
+  .bar-fill.neg { background: var(--neg); }
+  .bar-fill.neu { background: var(--neu); }
+  .bar-pct {
+    width: 44px;
+    text-align: right;
+    font-size: 0.88rem;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+
+  /* ── CSV Results ── */
+  .csv-results { display: none; margin-top: 28px; }
+  .csv-results.show { display: block; }
+
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .summary-card {
+    border-radius: 14px;
+    padding: 20px;
+    text-align: center;
+  }
+  .summary-card.pos { background: var(--pos-bg); border: 1px solid rgba(34,216,122,0.15); }
+  .summary-card.neg { background: var(--neg-bg); border: 1px solid rgba(255,77,109,0.15); }
+  .summary-card.neu { background: var(--neu-bg); border: 1px solid rgba(124,131,253,0.15); }
+  .summary-card .pct {
+    font-family: 'Syne', sans-serif;
+    font-size: 2rem;
+    font-weight: 800;
+    display: block;
+  }
+  .summary-card.pos .pct { color: var(--pos); }
+  .summary-card.neg .pct { color: var(--neg); }
+  .summary-card.neu .pct { color: var(--neu); }
+  .summary-card .lbl { font-size: 0.78rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 4px; }
+
+  /* ── Reviews table ── */
+  .reviews-list { display: flex; flex-direction: column; gap: 10px; }
+  .review-item {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 18px;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 14px;
+    align-items: start;
+    animation: fadeUp 0.3s ease both;
+  }
+  .review-num {
+    font-family: 'Syne', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--muted);
+    padding-top: 2px;
+  }
+  .review-text {
+    font-size: 0.9rem;
+    line-height: 1.5;
+    color: var(--text);
+  }
+  .review-badge {
+    font-family: 'Syne', sans-serif;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 5px 12px;
+    border-radius: 100px;
+    white-space: nowrap;
+    letter-spacing: 0.05em;
+  }
+  .review-badge.Positive { background: var(--pos-bg); color: var(--pos); border: 1px solid rgba(34,216,122,0.2); }
+  .review-badge.Negative { background: var(--neg-bg); color: var(--neg); border: 1px solid rgba(255,77,109,0.2); }
+  .review-badge.Neutral  { background: var(--neu-bg); color: var(--neu); border: 1px solid rgba(124,131,253,0.2); }
+
+  /* ── Loading spinner ── */
+  .spinner {
+    display: inline-block;
+    width: 16px; height: 16px;
+    border: 2px solid rgba(10,10,15,0.3);
+    border-top-color: #0a0a0f;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Error ── */
+  .error-msg {
+    display: none;
+    margin-top: 16px;
+    padding: 14px 18px;
+    background: rgba(255,77,109,0.08);
+    border: 1px solid rgba(255,77,109,0.2);
+    border-radius: 10px;
+    color: var(--neg);
+    font-size: 0.88rem;
+  }
+  .error-msg.show { display: block; }
+
+  /* ── Panel visibility ── */
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  /* ── Animations ── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes popIn {
+    from { opacity: 0; transform: scale(0.92); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+</style>
+</head>
+<body>
+<div class="blob blob-1"></div>
+<div class="blob blob-2"></div>
+
+<div class="wrapper">
+
+  <!-- Header -->
+  <header>
+    <div class="logo-badge"><span>🧠</span> AI Powered</div>
+    <h1>SentiSense</h1>
+    <p>Instantly understand the emotion behind any review — type it or upload a CSV.</p>
+  </header>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('text')">✍️ &nbsp;Type a Review</button>
+    <button class="tab" onclick="switchTab('csv')">📂 &nbsp;Upload CSV</button>
+  </div>
+
+  <!-- ── TEXT PANEL ── -->
+  <div class="card">
+    <div id="panel-text" class="panel active">
+      <textarea id="reviewInput" placeholder="Type or paste your review here…&#10;&#10;e.g. &quot;The product is amazing, I love it!&quot;" rows="6"></textarea>
+      <button class="btn" id="analyzeBtn" onclick="analyzeText()">
+        <span id="btnLabel">Analyze Sentiment</span>
+      </button>
+      <div class="error-msg" id="textError"></div>
+
+      <!-- Result -->
+      <div class="result-box" id="resultBox">
+        <div class="result-emoji" id="resultEmoji"></div>
+        <div class="result-label" id="resultLabel"></div>
+        <div class="bars">
+          <div class="bar-row">
+            <span class="bar-name" style="color:var(--pos)">Positive</span>
+            <div class="bar-track"><div class="bar-fill pos" id="barPos"></div></div>
+            <span class="bar-pct" id="pctPos" style="color:var(--pos)"></span>
+          </div>
+          <div class="bar-row">
+            <span class="bar-name" style="color:var(--neg)">Negative</span>
+            <div class="bar-track"><div class="bar-fill neg" id="barNeg"></div></div>
+            <span class="bar-pct" id="pctNeg" style="color:var(--neg)"></span>
+          </div>
+          <div class="bar-row">
+            <span class="bar-name" style="color:var(--neu)">Neutral</span>
+            <div class="bar-track"><div class="bar-fill neu" id="barNeu"></div></div>
+            <span class="bar-pct" id="pctNeu" style="color:var(--neu)"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── CSV PANEL ── -->
+    <div id="panel-csv" class="panel">
+      <div class="upload-zone" id="uploadZone">
+        <input type="file" id="csvFile" accept=".csv" onchange="fileSelected(this)">
+        <div class="upload-icon">📄</div>
+        <h3>Drop your CSV file here</h3>
+        <p>or click to browse — must have a review/text column</p>
+      </div>
+      <div class="file-selected" id="fileSelected">
+        <span>📎</span>
+        <span id="fileName"></span>
+      </div>
+      <button class="btn" id="csvBtn" onclick="analyzeCSV()" style="margin-top:16px">
+        <span id="csvBtnLabel">Analyze CSV</span>
+      </button>
+      <div class="error-msg" id="csvError"></div>
+
+      <!-- CSV Results -->
+      <div class="csv-results" id="csvResults">
+        <div class="summary-grid">
+          <div class="summary-card pos">
+            <span class="pct" id="sumPos">—</span>
+            <div class="lbl">😊 Positive</div>
+          </div>
+          <div class="summary-card neg">
+            <span class="pct" id="sumNeg">—</span>
+            <div class="lbl">😠 Negative</div>
+          </div>
+          <div class="summary-card neu">
+            <span class="pct" id="sumNeu">—</span>
+            <div class="lbl">😐 Neutral</div>
+          </div>
+        </div>
+        <div class="reviews-list" id="reviewsList"></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // ── Tab switching ──────────────────────────────────────────────────────────
+  function switchTab(tab) {
+    document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', (i===0&&tab==='text')||(i===1&&tab==='csv')));
+    document.getElementById('panel-text').classList.toggle('active', tab==='text');
+    document.getElementById('panel-csv').classList.toggle('active', tab==='csv');
+  }
+
+  // ── Drag & drop ────────────────────────────────────────────────────────────
+  const zone = document.getElementById('uploadZone');
+  zone.addEventListener('dragover',  e => { e.preventDefault(); zone.classList.add('dragover'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault();
+    zone.classList.remove('dragover');
+    const f = e.dataTransfer.files[0];
+    if (f) { document.getElementById('csvFile').files = e.dataTransfer.files; fileSelected({files:[f]}); }
+  });
+
+  function fileSelected(input) {
+    const f = input.files[0];
+    if (!f) return;
+    document.getElementById('fileName').textContent = f.name;
+    document.getElementById('fileSelected').classList.add('show');
+    document.getElementById('csvResults').classList.remove('show');
+    document.getElementById('csvError').classList.remove('show');
+  }
+
+  // ── Analyze single text ────────────────────────────────────────────────────
+  async function analyzeText() {
+    const text = document.getElementById('reviewInput').value.trim();
+    const btn  = document.getElementById('analyzeBtn');
+    const err  = document.getElementById('textError');
+    const box  = document.getElementById('resultBox');
+
+    err.classList.remove('show');
+    if (!text) { showError(err, 'Please enter a review first.'); return; }
+
+    btn.disabled = true;
+    document.getElementById('btnLabel').innerHTML = '<span class="spinner"></span> Analyzing…';
+
+    try {
+      const res  = await fetch('/analyze-text', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({text})
+      });
+      const data = await res.json();
+      if (data.error) { showError(err, data.error); return; }
+      showTextResult(data);
+    } catch(e) {
+      showError(err, 'Something went wrong. Is the server running?');
+    } finally {
+      btn.disabled = false;
+      document.getElementById('btnLabel').textContent = 'Analyze Sentiment';
+    }
+  }
+
+  function showTextResult(data) {
+    const box = document.getElementById('resultBox');
+    box.className = 'result-box show ' + data.label;
+    document.getElementById('resultEmoji').textContent = data.emoji;
+    document.getElementById('resultLabel').textContent = data.label;
+    animateBar('barPos', 'pctPos', data.positive);
+    animateBar('barNeg', 'pctNeg', data.negative);
+    animateBar('barNeu', 'pctNeu', data.neutral);
+  }
+
+  function animateBar(barId, pctId, value) {
+    const bar = document.getElementById(barId);
+    const pct = document.getElementById(pctId);
+    pct.textContent = value + '%';
+    setTimeout(() => bar.style.width = value + '%', 50);
+  }
+
+  // ── Analyze CSV ────────────────────────────────────────────────────────────
+  async function analyzeCSV() {
+    const fileInput = document.getElementById('csvFile');
+    const btn       = document.getElementById('csvBtn');
+    const err       = document.getElementById('csvError');
+
+    err.classList.remove('show');
+    if (!fileInput.files[0]) { showError(err, 'Please select a CSV file first.'); return; }
+
+    btn.disabled = true;
+    document.getElementById('csvBtnLabel').innerHTML = '<span class="spinner"></span> Analyzing…';
+
+    const form = new FormData();
+    form.append('file', fileInput.files[0]);
+
+    try {
+      const res  = await fetch('/analyze-csv', { method:'POST', body: form });
+      const data = await res.json();
+      if (data.error) { showError(err, data.error); return; }
+      showCSVResults(data);
+    } catch(e) {
+      showError(err, 'Something went wrong. Is the server running?');
+    } finally {
+      btn.disabled = false;
+      document.getElementById('csvBtnLabel').textContent = 'Analyze CSV';
+    }
+  }
+
+  function showCSVResults(data) {
+    const s = data.summary;
+    document.getElementById('sumPos').textContent = s.positive + '%';
+    document.getElementById('sumNeg').textContent = s.negative + '%';
+    document.getElementById('sumNeu').textContent = s.neutral  + '%';
+
+    const list = document.getElementById('reviewsList');
+    list.innerHTML = data.results.map((r, i) => `
+      <div class="review-item" style="animation-delay:${i*0.04}s">
+        <span class="review-num">#${r.id}</span>
+        <span class="review-text">${escHtml(r.review)}</span>
+        <span class="review-badge ${r.label}">${r.emoji} ${r.label}</span>
+      </div>
+    `).join('');
+
+    document.getElementById('csvResults').classList.add('show');
+  }
+
+  function showError(el, msg) { el.textContent = msg; el.classList.add('show'); }
+  function escHtml(t) {
+    return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // Enter key on textarea
+  document.getElementById('reviewInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && e.ctrlKey) analyzeText();
+  });
+</script>
+</body>
+</html>
