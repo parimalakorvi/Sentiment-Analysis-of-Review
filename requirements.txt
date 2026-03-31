@@ -1,2 +1,6 @@
-flask>=3.0
-nltk>=3.8
+flask
+gunicorn
+pandas
+numpy
+scikit-learn
+nltk
