@@ -119,7 +119,9 @@ def analyze_csv():
     })
 
 
+import os
+
 if __name__ == "__main__":
-    print("\n🚀 Starting Sentiment Analyzer...")
-    print("   Open http://localhost:5000 in your browser\n")
-    app.run(debug=True, port=5000)
+    print("\n🚀 Starting Sentiment Analyzer...\n")
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
